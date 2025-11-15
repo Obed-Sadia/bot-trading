@@ -1,0 +1,107 @@
+services:
+  acquirer:
+    build: .
+    container_name: trading_bot_acquirer
+    restart: unless-stopped
+    volumes:
+      - ./logs:/app/logs
+      - ./config.yml:/app/config.yml
+    ports:
+      - "8000:8000"
+    command: ["python", "main_acquirer.py"]
+    depends_on:
+      - influxdb
+
+  sentiment_acquirer:
+    build: .
+    container_name: trading_bot_sentiment
+    restart: unless-stopped
+    volumes:
+      - ./logs:/app/logs
+      - ./config.yml:/app/config.yml
+    ports:
+      - "8001:8001"
+    command: ["python", "main_sentiment_acquirer.py"]
+    depends_on:
+      - influxdb
+
+  live_trader:
+    build: .
+    container_name: trading_bot_live
+    restart: unless-stopped
+    volumes:
+      - ./logs:/app/logs
+      - ./config.yml:/app/config.yml
+      - ./models:/app/models
+    ports:
+      - "8002:8002"
+    command: ["python", "main_live_trader.py"]
+    depends_on:
+      - influxdb
+      - acquirer
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1 
+              capabilities: [gpu]
+
+  control_api:
+    build: .
+    container_name: trading_bot_api
+    restart: unless-stopped
+    volumes:
+      - "/var/run/docker.sock:/var/run/docker.sock"
+      - ./config.yml:/app/config.yml
+      - .:/app
+    ports:
+      - "8008:8008"
+    command: ["python", "api_server.py"]
+
+  redis:
+    image: redis:7-alpine
+    container_name: redis
+    ports:
+      - "6379:6379"
+  influxdb:
+    image: influxdb:latest
+    container_name: influxdb_trading_bot
+    ports:
+      - "8086:8086"
+    volumes:
+      - influxdb-data:/var/lib/influxdb2
+    environment:
+      - DOCKER_INFLUXDB_INIT_MODE=setup
+      - DOCKER_INFLUXDB_INIT_USERNAME=my-user
+      - DOCKER_INFLUXDB_INIT_PASSWORD=my-super-secret-password
+      - DOCKER_INFLUXDB_INIT_ORG=my-org
+      - DOCKER_INFLUXDB_INIT_BUCKET=trading-data
+      - DOCKER_INFLUXDB_INIT_ADMIN_TOKEN=my-super-secret-token
+
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: prometheus_monitoring
+    volumes:
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml
+    ports:
+      - "9090:9090"
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+    depends_on:
+      - acquirer
+      - sentiment_acquirer
+      - live_trader
+  grafana:
+    image: grafana/grafana-oss:latest
+    container_name: grafana_dashboard
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./grafana/provisioning:/etc/grafana/provisioning
+      - ./grafana/dashboards:/var/lib/grafana/dashboards
+    depends_on:
+      - prometheus
+
+volumes:
+  influxdb-data:

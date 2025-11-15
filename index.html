@@ -1,0 +1,522 @@
+<!DOCTYPE html>
+<html lang="fr" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard du Bot de Trading</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns/dist/chartjs-adapter-date-fns.bundle.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="icon" type="image/x-icon" href="/favicon.ico">
+    <style>
+        body { font-family: 'Inter', sans-serif; background-color: #030712; }
+        .card { @apply bg-gray-900/50 backdrop-blur-sm border border-gray-700/50 rounded-xl p-6; }
+        .stat-card { @apply bg-gray-800/60 p-4 rounded-lg text-center; }
+        .stat-value { @apply text-2xl font-bold text-white; }
+        .stat-label { @apply text-sm font-medium text-gray-400 mt-1; }
+        .fade-in { animation: fadeIn 0.5s ease-in-out forwards; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+        .loading::after { content: ''; display: inline-block; width: 16px; height: 16px; border: 2px solid #ffffff; border-radius: 50%; border-top-color: transparent; animation: spin 1s linear infinite; margin-left: 8px; }
+        @keyframes spin { to { transform: rotate(360deg); } }
+        
+        
+        /* index.html -> dans la balise <style> */
+
+        .funnel-step {
+            @apply flex items-center bg-gray-800/60 p-3 rounded-lg border border-gray-700/50 transition-all duration-300;
+        }
+        .funnel-indicator-wrapper {
+            @apply flex-shrink-0 mr-4;
+        }
+        .funnel-indicator {
+            @apply w-7 h-7 flex items-center justify-center bg-sky-800 text-white font-bold rounded-full text-sm;
+        }
+        .funnel-label {
+            @apply flex-grow;
+        }
+        .funnel-value {
+            @apply font-mono text-gray-200 text-sm mr-4 px-2 py-1 bg-gray-700 rounded;
+        }
+        .funnel-pass-fail::before {
+            @apply w-6 h-6 flex items-center justify-center rounded-full text-white font-bold;
+        }
+
+        /* Styles pour les statuts PASS / FAIL */
+        .pass {
+            border-color: #34d399; /* emerald-400 */
+        }
+        .pass .funnel-indicator {
+            background-color: #059669; /* emerald-600 */
+        }
+        .pass .funnel-pass-fail::before {
+            content: '✓';
+            background-color: #34d399; /* emerald-400 */
+        }
+
+        .fail {
+            border-color: #f87171; /* red-400 */
+            opacity: 0.6;
+        }
+        .fail .funnel-indicator {
+            background-color: #b91c1c; /* red-700 */
+        }
+        .fail .funnel-pass-fail::before {
+            content: '✗';
+            background-color: #f87171; /* red-400 */
+        }
+    </style>
+</head>
+<body class="text-gray-300 p-4 lg:p-8">
+    <div class="max-w-7xl mx-auto">
+        <header class="flex justify-between items-center mb-8 fade-in">
+            <h1 class="text-3xl font-bold text-white">Dashboard de Trading</h1>
+            <div class="flex items-center space-x-3 bg-gray-800/50 border border-gray-700/50 p-2 rounded-lg">
+                <span id="status-dot" class="w-3 h-3 rounded-full bg-gray-500 animate-pulse"></span>
+                <span id="status-text" class="font-mono text-lg">Indéterminé</span>
+            </div>
+        </header>
+
+        <main class="grid grid-cols-1 lg:grid-cols-4 gap-6">
+            <!-- Colonne Principale -->
+            <div class="lg:col-span-3 space-y-6">
+                <!-- Vue d'ensemble du portefeuille -->
+                <div class="card fade-in" style="animation-delay: 0.1s;">
+                    <h2 class="text-xl font-semibold mb-4 text-white">Vue d’ensemble du portefeuille</h2>
+                    <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+                        <div class="stat-card">
+                            <div id="portfolio-value" class="stat-value">Chargement...</div>
+                            <div class="stat-label">Valeur Totale</div>
+                        </div>
+                        <div class="stat-card">
+                            <div id="portfolio-pnl-value" class="stat-value">Chargement...</div>
+                            <div class="stat-label">Gain/Perte ($)</div>
+                        </div>
+                        <div class="stat-card">
+                            <div id="portfolio-pnl-pct" class="stat-value">Chargement...</div>
+                            <div class="stat-label">Gain/Perte (%)</div>
+                        </div>
+                        <div class="stat-card">
+                            <div id="portfolio-cash" class="stat-value">Chargement...</div>
+                            <div class="stat-label">Cash Disponible</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Graphique de performance -->
+                <div class="card fade-in" style="animation-delay: 0.2s;">
+                    <h2 class="text-xl font-semibold mb-4 text-white">Performance du Portefeuille</h2>
+                    <canvas id="portfolio-chart"></canvas>
+                </div>
+
+                <!-- Activité du bot -->
+                <div class="card fade-in" style="animation-delay: 0.3s;">
+                    <h2 class="text-xl font-semibold mb-4 text-white">Activité du bot (30j)</h2>
+                    <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+                        <div class="stat-card">
+                            <div id="activity-trades" class="stat-value">Chargement...</div>
+                            <div class="stat-label">Trades</div>
+                        </div>
+                        <div class="stat-card">
+                            <div id="activity-winrate" class="stat-value">Chargement...</div>
+                            <div class="stat-label">Taux de Réussite</div>
+                        </div>
+                        <div class="stat-card">
+                            <div id="activity-profit-factor" class="stat-value">Chargement...</div>
+                            <div class="stat-label">Facteur de Profit</div>
+                        </div>
+                        <div class="stat-card">
+                            <div id="activity-avg-hold" class="stat-value">Chargement...</div>
+                            <div class="stat-label">Détention Moy.</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Alertes et Risques -->
+                <div class="card fade-in" style="animation-delay: 0.4s;">
+                    <h2 class="text-xl font-semibold mb-4 text-white">Alertes et Risques</h2>
+                    <div class="overflow-x-auto max-h-96">
+                        <table class="w-full text-sm text-left table-auto">
+                            <thead class="text-xs text-gray-400 uppercase bg-gray-800/50">
+                                <tr>
+                                    <th scope="col" class="px-4 py-2">Actif</th>
+                                    <th scope="col" class="px-4 py-2">Direction</th>
+                                    <th scope="col" class="px-4 py-2">Quantité</th>
+                                    <th scope="col" class="px-4 py-2">Prix d'Entrée</th>
+                                    <th scope="col" class="px-4 py-2">Take-Profit</th>
+                                    <th scope="col" class="px-4 py-2">Stop-Loss</th>
+                                </tr>
+                            </thead>
+                            <tbody id="positions-table-body">
+                                <tr><td colspan="6" class="text-center p-4">Chargement...</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                    
+                    <h2 class="text-xl font-semibold mb-4 text-white">Historique des Trades (30j)</h2>
+                    <div class="overflow-x-auto max-h-96">
+                        <table class="w-full text-sm text-left table-auto">
+                             <thead class="text-xs text-gray-400 uppercase bg-gray-800/50 sticky top-0">
+                                <tr>
+                                    <th scope="col" class="px-4 py-2">Date (UTC)</th>
+                                    <th scope="col" class="px-4 py-2">Actif</th>
+                                    <th scope="col" class="px-4 py-2">Direction</th>
+                                    <th scope="col" class="px-4 py-2">PnL ($)</th>
+                                    <th scope="col" class="px-4 py-2">Prix Entrée/Sortie</th>
+                                </tr>
+                            </thead>
+                            <tbody id="trade-history-table-body">
+                               </tbody>
+                        </table>
+                    </div>
+
+                </div>
+            </div>
+
+            <!-- Colonne de Contrôle Latérale -->
+            <div class="lg:col-span-1 space-y-6">
+                <div class="card fade-in" style="animation-delay: 0.5s;">
+                    <h2 class="text-xl font-semibold mb-4 text-white">Contrôles & Indicateurs</h2>
+                    
+                    <div class="space-y-3">
+                        <button id="start-btn" class="w-full text-white bg-emerald-600 hover:bg-emerald-700 focus:ring-4 focus:ring-emerald-800 font-medium rounded-lg text-sm px-5 py-2.5 text-center">Démarrer</button>
+                        <button id="stop-btn" class="w-full text-white bg-amber-500 hover:bg-amber-600 focus:ring-4 focus:ring-amber-900 font-medium rounded-lg text-sm px-5 py-2.5 text-center">Arrêter</button>
+                        <button id="restart-btn" class="w-full text-white bg-sky-600 hover:bg-sky-700 focus:ring-4 focus:ring-sky-800 font-medium rounded-lg text-sm px-5 py-2.5 text-center">Redémarrer</button>
+                        <button id="panic-btn" class="w-full text-white bg-red-600 hover:bg-red-700 focus:ring-4 focus:ring-red-900 font-medium rounded-lg text-sm px-5 py-2.5 text-center mt-4">BOUTON PANIQUE</button>
+                    </div>
+
+                </div>
+
+                <div class="card fade-in" style="animation-delay: 0.2s;">
+                    <div class="flex justify-between items-center mb-2">
+                        <h2 class="text-xl font-semibold text-white">🚦 Entonnoir de Décision</h2>
+                        <p id="last-update" class="text-xs text-gray-500 font-mono">En attente...</p>
+                    </div>
+                
+                    <div class="space-y-3 mt-4">
+                
+                        <div id="regime-step" class="funnel-step">
+                            
+                            <div class="funnel-label">
+                                <span class="font-semibold">Régime de Marché</span>
+                                <span class="text-gray-400 text-xs ml-2">(XGBoost)</span>
+                            </div>
+                            <div id="regime-status" class="funnel-value">...</div>
+                        </div>
+                
+                        <div id="momentum-step" class="funnel-step">
+                            
+                            <div class="funnel-label">
+                                <span class="font-semibold">Momentum</span>
+                                <span class="text-gray-400 text-xs ml-2">(LSTM)</span>
+                            </div>
+                            <div id="momentum-status" class="funnel-value">...</div>
+                        </div>
+                
+                        <div id="volatility-step" class="funnel-step">
+                            
+                            <div class="funnel-label">
+                                <span class="font-semibold">Volatilité / Risque</span>
+                                <span class="text-gray-400 text-xs ml-2">(GRU)</span>
+                            </div>
+                            <div id="volatility-status" class="funnel-value">...</div>
+                        </div>
+                
+                        <div id="rsi-step" class="funnel-step">
+                            
+                            <div class="funnel-label">
+                                <span class="font-semibold">Déclencheur</span>
+                                <span class="text-gray-400 text-xs ml-2">(RSI)</span>
+                            </div>
+                            <div id="rsi-status" class="funnel-value">...</div>
+                        </div>
+                    </div>
+                
+                    <div id="final-decision-card" class="mt-6 pt-4 border-t border-gray-700/50 text-center">
+                        <h3 class="text-lg font-medium text-gray-300">Décision Finale</h3>
+                        <p id="final-decision" class="text-3xl font-bold mt-1">EN ATTENTE</p>
+                    </div>
+                </div>
+                
+                <div class="card fade-in" style="animation-delay: 0.6s;">
+                    <h2 class="text-xl font-semibold mb-4 text-white">Stratégie Active</h2>
+                    <div id="strategies-list" class="text-gray-300 font-mono">Chargement...</div>
+                </div>
+
+            </div>
+        </main>
+        <div id="notification" class="fixed bottom-5 right-5 p-4 rounded-lg text-white font-medium shadow-lg transition-transform transform translate-y-20 opacity-0"></div>
+    </div>
+
+    <script>
+        const API_BASE_URL = 'http://localhost:8008';
+        const API_KEY = 'your-secret-api-key'; // À configurer
+
+        function showNotification(message, color) {
+            const notification = document.getElementById('notification');
+            notification.textContent = message;
+            notification.className = `fixed bottom-5 right-5 p-4 rounded-lg text-white font-medium shadow-lg transition-all duration-500 transform-gpu bg-${color}-600`;
+            setTimeout(() => {
+                notification.className = `fixed bottom-5 right-5 p-4 rounded-lg text-white font-medium shadow-lg transition-all duration-500 transform-gpu translate-y-20 opacity-0 bg-${color}-600`;
+            }, 5000);
+        }
+
+        async function apiCall(endpoint, options = {}) {
+            try {
+                options.headers = { ...options.headers, 'X-API-Key': API_KEY };
+                const response = await fetch(`${API_BASE_URL}${endpoint}`, options);
+                if (!response.ok) {
+                    const errorData = await response.json().catch(() => ({}));
+                    throw new Error(errorData.detail || `Erreur serveur: ${response.status}`);
+                }
+                return await response.json();
+            } catch (error) {
+                showNotification(`Erreur API: ${error.message}`, 'red');
+                throw error;
+            }
+        }
+
+        // index.html -> dans la balise <script>
+
+        async function updateAnalysisDashboard() {
+            try {
+                const response = await fetch(`${API_BASE_URL}/api/latest_analysis`);
+                // Sécuriser au cas où l'API n'est pas prête
+                if (!response.ok) { 
+                    // Ne rien faire si le bot n'a pas encore produit d'analyse
+                    return; 
+                }
+                const data = await response.json();
+
+                if (data.error || !data.symbol) {
+                    return;
+                }
+
+                // Mise à jour du timestamp
+                document.getElementById('last-update').textContent = `Dernière analyse pour ${data.symbol} à ${new Date(data.timestamp).toLocaleTimeString()}`;
+                
+                // Fonction pour mettre à jour une étape
+                const updateStep = (stepId, valueId, passId, stepData) => {
+                    document.getElementById(stepId).className = 'funnel-step ' + (stepData.pass ? 'pass' : 'fail');
+                    document.getElementById(valueId).textContent = stepData.value;
+                    // La mise à jour du contenu "✓/✗" se fait via les classes CSS
+                };
+
+                // Mise à jour de chaque étape
+                updateStep('regime-step', 'regime-status', 'regime-pass', data.regime);
+                updateStep('momentum-step', 'momentum-status', 'momentum-pass', data.momentum);
+                updateStep('volatility-step', 'volatility-status', 'volatility-pass', data.volatility);
+                updateStep('rsi-step', 'rsi-status', 'rsi-pass', data.rsi);
+                
+                // Mise à jour de la décision finale
+                const finalDecisionElem = document.getElementById('final-decision');
+                finalDecisionElem.textContent = data.final_decision;
+                if (data.final_decision === "ACHAT") {
+                    finalDecisionElem.className = 'text-3xl font-bold mt-1 text-emerald-400';
+                } else if (data.final_decision === "VENTE") {
+                    finalDecisionElem.className = 'text-3xl font-bold mt-1 text-red-400';
+                } else {
+                    finalDecisionElem.className = 'text-3xl font-bold mt-1 text-gray-500';
+                }
+
+            } catch (error) {
+                // Gérer les erreurs de réseau discrètement
+                console.warn("Erreur de connexion à l'API d'analyse.", error);
+            }
+        }
+
+        async function updateStatus() {
+            const statusDot = document.getElementById('status-dot');
+            const statusText = document.getElementById('status-text');
+            try {
+                statusText.classList.add('loading');
+                const data = await apiCall('/api/bot/status');
+                statusText.textContent = data.status.charAt(0).toUpperCase() + data.status.slice(1);
+                statusDot.className = 'w-3 h-3 rounded-full inline-block mr-2 animate-pulse';
+                if (data.status.includes('running') || data.status.includes('up')) {
+                    statusDot.classList.add('bg-green-500');
+                } else {
+                    statusDot.classList.add('bg-red-500');
+                }
+            } catch (e) {
+                statusText.textContent = 'Injoignable';
+                statusDot.className = 'w-3 h-3 rounded-full inline-block mr-2 bg-red-500';
+            } finally {
+                statusText.classList.remove('loading');
+            }
+        }
+
+        // --- Helper pour mettre à jour les cartes de statut ---
+        function updateStatusCard(elementId, data) {
+            const elem = document.getElementById(elementId);
+            elem.textContent = data.value;
+            elem.className = 'status ' + (data.pass ? 'pass' : 'fail');
+        }
+
+        let portfolioChart = null;
+        async function updateDashboard() {
+            try {
+                // Portfolio
+                const portfolioEls = {
+                    value: document.getElementById('portfolio-value'),
+                    pnlValue: document.getElementById('portfolio-pnl-value'),
+                    pnlPct: document.getElementById('portfolio-pnl-pct'),
+                    cash: document.getElementById('portfolio-cash'),
+                    positions: document.getElementById('positions-table-body')
+                };
+                Object.values(portfolioEls).forEach(el => el.classList.add('loading'));
+                const portfolioData = await apiCall('/api/portfolio/overview');
+                portfolioEls.value.textContent = `$${portfolioData.total_value.toFixed(2)}`;
+                portfolioEls.pnlValue.textContent = `$${portfolioData.pnl_value.toFixed(2)}`;
+                portfolioEls.pnlPct.textContent = `${portfolioData.pnl_pct.toFixed(2)}%`;
+                portfolioEls.cash.textContent = `$${portfolioData.cash.toFixed(2)}`;
+                portfolioEls.pnlValue.className = `stat-value ${portfolioData.pnl_value >= 0 ? 'text-emerald-400' : 'text-red-400'}`;
+                portfolioEls.pnlPct.className = `stat-value ${portfolioData.pnl_pct >= 0 ? 'text-emerald-400' : 'text-red-400'}`;
+                portfolioEls.positions.innerHTML = '';
+
+
+                if (portfolioData.positions.length === 0) {
+                    portfolioEls.positions.innerHTML = '<tr><td colspan="6" class="text-center p-4">Aucune position ouverte.</td></tr>';
+                } else {
+                    portfolioData.positions.forEach(pos => {
+                        const row = document.createElement('tr');
+                        row.className = 'border-b border-gray-800';
+                        row.innerHTML = `
+                            <td class="px-4 py-2 font-mono">${pos.symbol}</td>
+                            <td class="px-4 py-2 ${pos.direction === 'BUY' ? 'text-green-400' : 'text-red-400'}">${pos.direction}</td>
+                            <td class="px-4 py-2">${pos.quantity.toFixed(6)}</td>
+                            <td class="px-4 py-2">${pos.entry_price.toFixed(2)}</td>
+                            <td class="px-4 py-2">${pos.take_profit_price.toFixed(2)}</td>
+                            <td class="px-4 py-2">${pos.stop_loss_price.toFixed(2)}</td>
+                        `;
+                        portfolioEls.positions.appendChild(row);
+                    });
+                }
+                Object.values(portfolioEls).forEach(el => el.classList.remove('loading'));
+
+                // Historique pour le graphique
+                const historyData = await apiCall('/api/portfolio/history');
+                const ctx = document.getElementById('portfolio-chart').getContext('2d');
+                
+                if (portfolioChart) portfolioChart.destroy();
+                portfolioChart = new Chart(ctx, {
+                    type: 'line',
+                    data: {
+                        labels: historyData.labels || [],
+                        datasets: [
+                            {
+                                label: 'Valeur Totale',
+                                data: historyData.total_value || [],
+                                borderColor: '#36A2EB',
+                                backgroundColor: 'rgba(54, 162, 235, 0.2)',
+                                fill: true,
+                                tension: 0.4
+                            },
+                            {
+                                label: 'Cash Disponible',
+                                data: historyData.cash || [],
+                                borderColor: '#FF6384',
+                                backgroundColor: 'rgba(255, 99, 132, 0.2)',
+                                fill: true,
+                                tension: 0.4
+                            }
+                        ]
+                    },
+                    options: {
+                        responsive: true,
+                        scales: {
+                            y: { beginAtZero: false, title: { display: true, text: 'USD', color: '#D1D5DB' }, grid: { borderColor: '#4B5563', color: '#4B5563' } },
+                            x: { title: { display: true, text: 'Date', color: '#D1D5DB' }, grid: { borderColor: '#4B5563', color: '#4B5563' } }
+                        },
+                        plugins: { legend: { labels: { color: '#D1D5DB' } } }
+                    }
+                });
+
+                // Stats
+                const statsEls = {
+                    trades: document.getElementById('activity-trades'),
+                    winrate: document.getElementById('activity-winrate'),
+                    profitFactor: document.getElementById('activity-profit-factor'),
+                    avgHold: document.getElementById('activity-avg-hold')
+                };
+
+                Object.values(statsEls).forEach(el => el.classList.add('loading'));
+                const activityData = await apiCall('/api/bot/stats');
+                statsEls.trades.textContent = activityData.total_trades;
+                statsEls.winrate.textContent = `${activityData.win_rate.toFixed(2)}%`;
+                statsEls.profitFactor.textContent = activityData.profit_factor.toFixed(2);
+                statsEls.avgHold.textContent = `${activityData.avg_holding_time_hours.toFixed(1)}h`;
+                Object.values(statsEls).forEach(el => el.classList.remove('loading'));
+
+                // Stratégies
+                document.getElementById('strategies-list').classList.add('loading');
+                const configData = await apiCall('/api/config');
+                document.getElementById('strategies-list').textContent = configData.active_strategy || 'Aucune stratégie active';
+                document.getElementById('strategies-list').classList.remove('loading');
+
+
+                // hisotrique trade 
+                 // --- NOUVELLE LOGIQUE POUR L'HISTORIQUE DES TRADES ---
+                const historyTableBody = document.getElementById('trade-history-table-body');
+                historyTableBody.innerHTML = '<tr><td colspan="5" class="text-center p-4 loading">Chargement...</td></tr>';
+                const tradeHistoryData = await apiCall('/api/portfolio/trade_history');
+                historyTableBody.innerHTML = ''; // Vider la table
+
+                if (tradeHistoryData.length === 0) {
+                    historyTableBody.innerHTML = '<tr><td colspan="5" class="text-center p-4">Aucun trade fermé pour le moment.</td></tr>';
+                } else {
+                    // On affiche les plus récents en premier
+                    tradeHistoryData.slice().reverse().forEach(trade => {
+                        const row = document.createElement('tr');
+                        row.className = 'border-b border-gray-800';
+                        const pnlColor = trade.pnl >= 0 ? 'text-emerald-400' : 'text-red-400';
+                        
+                        row.innerHTML = `
+                            <td class="px-4 py-2 font-mono text-xs">${new Date(trade.exit_time).toLocaleString()}</td>
+                            <td class="px-4 py-2 font-mono">${trade.symbol}</td>
+                            <td class="px-4 py-2">${trade.direction}</td>
+                            <td class="px-4 py-2 font-bold ${pnlColor}">${trade.pnl.toFixed(2)} $</td>
+                            <td class="px-4 py-2 text-xs">${trade.entry_price.toFixed(2)} -> ${trade.exit_price.toFixed(2)}</td>
+                        `;
+                        historyTableBody.appendChild(row);
+                    });
+                }
+
+
+            } catch (e) {
+                console.error("Erreur de mise à jour du dashboard:", e);
+                showNotification("Erreur lors de la mise à jour du dashboard", 'red');
+            }
+        }
+
+        document.getElementById('start-btn').addEventListener('click', () => {
+            apiCall('/api/bot/start', { method: 'POST' }).then(d => { showNotification(d.message, 'green'); setTimeout(updateStatus, 1000); });
+        });
+        document.getElementById('stop-btn').addEventListener('click', () => {
+            apiCall('/api/bot/stop', { method: 'POST' }).then(d => { showNotification(d.message, 'yellow'); setTimeout(updateStatus, 1000); });
+        });
+        document.getElementById('restart-btn').addEventListener('click', () => {
+            apiCall('/api/bot/restart', { method: 'POST' }).then(d => { showNotification(d.message, 'blue'); setTimeout(updateStatus, 1000); });
+        });
+        document.getElementById('panic-btn').addEventListener('click', () => {
+            if (confirm('Êtes-vous sûr de vouloir liquider toutes les positions ?')) {
+                apiCall('/api/bot/panic', { method: 'POST' }).then(d => { showNotification(d.message, 'red'); setTimeout(updateDashboard, 1000); });
+            }
+        });
+
+       document.addEventListener('DOMContentLoaded', () => {
+            // Premier appel immédiat pour charger les données sans attendre
+            updateStatus();
+            updateDashboard();
+            updateAnalysisDashboard();
+
+            // Intervalles pour les mises à jour régulières
+            setInterval(updateStatus, 10000); 
+            setInterval(updateDashboard, 10000); 
+            setInterval(updateAnalysisDashboard, 5000); // <-- AJOUT: Mettre à jour l'analyse toutes les 5s
+        });
+
+    </script>
+</body>
+</html>

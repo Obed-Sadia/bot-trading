@@ -1,0 +1,17 @@
+# prometheus.yml
+global:
+  scrape_interval: 15s
+
+
+scrape_configs:
+  - job_name: 'acquirer'
+    static_configs:
+      - targets: ['acquirer:8000']
+
+  - job_name: 'sentiment_acquirer'
+    static_configs:
+      - targets: ['sentiment_acquirer:8001']
+
+  - job_name: 'live_trader'
+    static_configs:
+      - targets: ['live_trader:8002']
