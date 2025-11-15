@@ -2,7 +2,6 @@
 global:
   scrape_interval: 15s
 
-
 scrape_configs:
   - job_name: 'acquirer'
     static_configs:

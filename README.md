@@ -10,9 +10,9 @@
 
 Ce projet est né d'une ambition personnelle : explorer la finance quantitative et le trading algorithmique.
 
-Mon objectif initial était de construire un bot de **Trading Haute Fréquence (HFT)**. J'ai rapidement réalisé que le HFT pur est irréalisable sans une infrastructure matérielle et logicielle de niveau industriel (proximité des serveurs d'échange, flux de données payants à faible latence).
+Mon objectif initial était de construire un bot de Trading Haute Fréquence (HFT). J'ai rapidement réalisé que le HFT pur est irréalisable sans une infrastructure matérielle et logicielle de niveau industriel (proximité des serveurs d'échange, flux de données payants à faible latence).
 
-J'ai donc opéré un **pivot stratégique** vers une approche de **"Scalping Intelligent" (Scalping + IA)**.
+J'ai donc opéré un pivot stratégique vers une approche de "Scalping Intelligent" (Scalping + IA).
 
 La v1.0 (ce projet de stage) m'a permis de construire l'architecture fondamentale : un système de microservices robuste capable de :
 1.  Ingérer des données de marché (prix) via WebSockets.
@@ -36,10 +36,6 @@ Le projet n'étant pas déployé, voici un aperçu de l'architecture et du dashb
 ![Schéma de l'architecture des microservices](_docs/architecture1.jpg) 
 ![Schéma de l'architecture des microservices](_docs/architecture2.jpg)
 
-**Dashboard de Monitoring (Grafana) :**
-*([Action] : Faites un GIF de votre dashboard et placez-le dans `_docs/dashboard.gif`)*
-![Dashboard Grafana en action](_docs/dashboard.gif)
-
 ---
 
 ### 📋 Table des Matières
@@ -58,9 +54,9 @@ Le projet n'étant pas déployé, voici un aperçu de l'architecture et du dashb
 
 **Ma Solution :** Une architecture microservices événementielle entièrement conteneurisée.
 * **Acquisition :** Des services en Python asynchrone (`asyncio`) collectent les données de marché (WebSockets) et de sentiment (API REST) indépendamment.
-* **Stockage & État :** **InfluxDB** est utilisé pour le stockage haute performance des séries temporelles (prix) et **Redis** agit comme bus de messages (Pub/Sub) et gestionnaire d'état.
+* **Stockage & État :** **InfluxDB** est utilisé pour le stockage haute performance des séries temporelles (prix) et Redis agit comme bus de messages (Pub/Sub) et gestionnaire d'état.
 * **IA & Stratégie :** Une stratégie multi-modèles (XGBoost, LSTM, GRU) analyse les signaux techniques. *(Note : Le pipeline de collecte pour l'analyse de sentiment est fonctionnel, mais cette stratégie v1.0 est focalisée sur les signaux techniques.)*
-* **Contrôle & Monitoring :** L'ensemble est piloté par une **API de contrôle (FastAPI)** et supervisé en temps réel via une pile **Prometheus** et **Grafana**.
+* **Contrôle & Monitoring :** L'ensemble est piloté par une API de contrôle (FastAPI) et supervisé en temps réel via une pile Prometheus et Grafana.
 
 ### ✨ Fonctionnalités Clés
 
@@ -103,8 +99,8 @@ Ce projet est entièrement conteneurisé. L'installation est simple à condition
 
 1.  Clonez ce dépôt :
     ```bash
-    git clone [URL_DE_VOTRE_REPO]
-    cd [NOM_DU_DOSSIER]
+    git clone https://github.com/Obed-Sadia/bot-trading.git
+    cd bot-trading
     ```
 
 2.  Créez un fichier `config.yml` à partir de `config.example.yml` et ajoutez vos clés d'API (Binance, Kraken, etc.).
@@ -118,4 +114,10 @@ Ce projet est entièrement conteneurisé. L'installation est simple à condition
     docker-compose up --build
     ```
 
-4.  Ouvrez votre dashboard Grafana (généralement `http://localhost:3000`) pour voir le système.
+4.  Ouvrez votre dashboard Grafana (`http://localhost:3000`) pour visualiser les métriques du système, les données de marché, les sentiments, et les performances du bot.
+
+5. Accédez à l'interface Prometheus (`http://localhost:9090`) pour explorer les métriques brutes scrapées des services 
+
+6. Ouvrez l'UI d'InfluxDB (`http://localhost:8086`) pour inspecter la base de données timeseries
+
+7. Utilisez le Control API (`http://localhost:8008`) comme centre de contrôle pour gérer les services du bot

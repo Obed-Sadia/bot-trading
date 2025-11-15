@@ -3,3 +3,8 @@ __pycache__/
 /data/raw/ 
 /logs/
 config.yml
+main_backtest.py
+cahier.md
+/tests/
+/notebooks/
+

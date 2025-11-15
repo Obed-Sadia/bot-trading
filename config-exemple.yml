@@ -1,0 +1,105 @@
+# Ceci est un TEMPLATE de configuration.
+
+
+active_strategy: "multi_model_strategy" # Changer ici pour tester une autre stratégie
+
+strategies:
+  sma_crossover:
+    short_window: 1 #20
+    long_window: 3 #50
+  
+  order_book_imbalance:
+    imbalance_threshold: 1.05
+    cooldown_period_seconds: 60
+    trend_filter_window: 200
+
+  triangular_arbitrage:
+    legs: ["BTC/USDT", "ETH/BTC", "ETH/USDT"]
+    min_profit_pct: 0.1
+
+  # Configuration pour notre nouvelle stratégie multi-modèles
+  multi_model_strategy:
+    model_paths:
+      xgboost: "models/xgboost/xgboost_regime_model.json"
+      xgboost_encoder: "models/xgboost/label_encoder.joblib"
+      gru: "models/gru/gru_volatility_model.keras"
+      gru_scaler: "models/gru/scaler.joblib"
+      lstm: "models/lstm/lstm_momentum_model.keras"
+      lstm_scaler: "models/lstm/scaler.joblib"
+    # Paramètres de la stratégie
+    history_length: 250 # Doit être supérieur au plus grand LOOK_BACK de nos modèles (120 pour le LSTM)
+    rsi_trigger:
+      period: 14
+      buy_threshold: 40 # Acheter quand le RSI passe sous 40
+      sell_threshold: 60 # Vendre quand le RSI passe au-dessus de 60
+
+# --- SECTION POUR LA COLLECTE DE DONNÉES ---
+data_acquisition:
+  influxdb:
+    url: "http://influxdb:8086"
+    # Le token doit correspondre à DOCKER_INFLUXDB_INIT_ADMIN_TOKEN dans votre .env
+    token: "VOTRE_TOKEN_INFLUXDB_ICI"
+    org: "my-org"
+    bucket: "trading-data"
+  
+  active_exchanges:
+    - binance
+    - kraken
+    - coinbase
+
+  exchanges:
+    binance:
+      symbols: ["BTCUSDT", "ETHUSDT"]
+    kraken:
+      symbols: ["BTC/USD", "ETH/USD"]
+    coinbase:
+      symbols: ["BTC-USD", "ETH-USD"]
+
+# --- SECTION POUR LE TRAITEMENT DES DONNÉES ---
+feature_engine:
+  source_bucket: "trading-data"
+  destination_bucket: "trading-data"
+  source_measurements:
+    order_book: "order_book_l2"
+    trades: "market_trades"
+  destination_measurement: "market_features"
+
+# --- SECTION POUR LES SOURCES DE SENTIMENT ---
+sentiment_sources:
+  # Mettez vos clés d'API secrètes dans config.yml (PAS ICI)
+  api_keys:
+    cryptopanic: "VOTRE_CLE_CRYPTOPANIC_ICI"
+    reddit_client_id: "VOTRE_ID_CLIENT_REDDIT_ICI"
+    reddit_client_secret: "VOTRE_SECRET_CLIENT_REDDIT_ICI"
+    reddit_user_agent: "SentimentAcquirer by MonUsernameUnique" # Mettez un nom unique
+    
+    coinbase_api_key: "VOTRE_CLE_API_COINBASE_ICI"
+    coinbase_api_secret: "VOTRE_SECRET_API_COINBASE_ICI"
+    coinbase_api_passphrase: "VOTRE_PASSPHRASE_COINBASE_ICI"
+
+  # Paramètres de polling
+  cryptopanic_poll_interval_seconds: 43200
+  reddit_poll_interval_seconds: 1800
+  reddit_subreddits:
+    - "CryptoCurrency"
+    - "Bitcoin"
+    - "ethtrader"
+
+# --- SECTION POUR LE TRADING EN DIRECT ---
+live_trading:
+  exchange_id: "binance"
+  data_source_id: "kraken"
+  execution_exchange_id: "binance"
+  is_testnet: true
+
+  # Mettez vos clés d'exchange réelles dans config.yml (PAS ICI)
+  api_keys:
+    binance:
+      apiKey: "VOTRE_CLE_API_BINANCE_ICI"
+      secret: "VOTRE_SECRET_BINANCE_ICI"
+    kraken:
+      apiKey: "VOTRE_CLE_API_KRAKEN_ICI"
+      secret: "VOTRE_SECRET_KRAKEN_ICI"
+    coinbase:
+      apiKey: "VOTRE_CLE_API_COINBASE_ICI"
+      secret: "VOTRE_SECRET_API_COINBASE_ICI"

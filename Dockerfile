@@ -29,7 +29,7 @@ RUN pip install --no-cache-dir -r requirements.txt tensorflow[and-cuda]
 # Copier le reste du code de l'application
 COPY . .
 
-# Exposer le port pour l'API de contrôle (si nécessaire)
+# Exposer le port pour l'API de contrôle 
 EXPOSE 8008
 
 # La commande par défaut (sera surchargée par docker-compose pour chaque service)
