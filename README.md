@@ -32,7 +32,6 @@ Ce projet m'a permis de comprendre le cycle de vie complet d'un système de trad
 Le projet n'étant pas déployé, voici un aperçu de l'architecture et du dashboard.
 
 **Architecture des Microservices :**
-*([Action] : Créez ce schéma sur Excalidraw ou un outil similaire et placez-le dans `_docs/architecture.png`)*
 ![Schéma de l'architecture des microservices](_docs/architecture1.jpg) 
 ![Schéma de l'architecture des microservices](_docs/architecture2.jpg)
 
